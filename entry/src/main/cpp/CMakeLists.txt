@@ -67,7 +67,7 @@ find_library(
 )
 
 target_link_libraries(nativenode PUBLIC
-    ${EGL-lib} ${GLES-lib} ${hilog-lib} ${libace-lib} ${libnapi-lib} ${libuv-lib} epoxy libnative_window.so)
+    ${EGL-lib} ${GLES-lib} ${hilog-lib} ${libace-lib} ${libnapi-lib} ${libuv-lib} epoxy)
 
 if (${OHOS_ARCH} STREQUAL "arm64-v8a")
 target_link_directories(nativenode PUBLIC ${NATIVERENDER_ROOT_PATH}/../../../libs/${OHOS_ARCH}/)

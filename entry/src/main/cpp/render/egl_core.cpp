@@ -25,13 +25,6 @@
 
 #include "../common/common.h"
 
-#include "dlfcn.h"
-
-#include <native_buffer/native_buffer.h>
-#include <native_window/external_window.h>
-
-#include <sys/mman.h>
-
 namespace NativeXComponentSample {
 namespace {
 constexpr int32_t NUM_4 = 4;
@@ -219,8 +212,6 @@ const EGLint CONTEXT_ATTRIBS[] = {
 typedef EGLBoolean (*eglInitialize_t)(EGLDisplay, EGLint*, EGLint*);
 typedef EGLDisplay (*eglGetDisplay_t)(EGLNativeDisplayType);
 
-static OHNativeWindow *gWindow;
-
 bool EGLCore::EglContextInit(void* window, int width, int height)
 {
     // setup mesa for our needs
@@ -231,9 +222,6 @@ bool EGLCore::EglContextInit(void* window, int width, int height)
     //setenv("MESA_GLES_VERSION_OVERRIDE", "3.0", 1);
     setenv("ZINK_DEBUG", "mem,map,flushsync,spirv,sync,nir", 1);
     setenv("GALLIUM_THREAD", "0", 1);
-
-    // HACK
-    gWindow = static_cast<OHNativeWindow *>(window);
 
     OH_LOG_Print(LOG_APP, LOG_INFO, LOG_PRINT_DOMAIN, "EGLCore", "EglContextInit execute");
     if ((window == nullptr) || (width <= 0) || (height <= 0)) {
@@ -533,127 +521,11 @@ void EGLCore::Rotate2d(GLfloat centerX, GLfloat centerY, GLfloat* rotateX, GLflo
     *rotateY = tempY + centerY;
 }
 
-
-#include <stdio.h>
-#include <stdint.h>
-
-int saveRGBA8888ToBMP(const char *filename, int width, int height, const unsigned char *pixels) {
-    FILE *f = fopen(filename, "wb");
-    if (!f)
-        return -1;  // error opening file
-
-    // Calculate sizes
-    uint32_t fileSize = 54 + width * height * 4; // 14 (file header) + 40 (info header) + pixel data
-    uint32_t imgSize  = width * height * 4;
-    int32_t negHeight = -height;  // negative for top-down bitmap
-
-    // BMP file header (14 bytes)
-    unsigned char bmpFileHeader[14] = {
-        'B','M',                        // Signature
-        (unsigned char)(fileSize),      // File size
-        (unsigned char)(fileSize >> 8),
-        (unsigned char)(fileSize >> 16),
-        (unsigned char)(fileSize >> 24),
-        0, 0,                           // Reserved
-        0, 0,                           // Reserved
-        54, 0, 0, 0                     // Offset to pixel data (14 + 40)
-    };
-
-    // BMP info header (40 bytes)
-    unsigned char bmpInfoHeader[40] = {
-        40, 0, 0, 0,                   // Header size (40 bytes)
-        (unsigned char)(width),         // Image width
-        (unsigned char)(width >> 8),
-        (unsigned char)(width >> 16),
-        (unsigned char)(width >> 24),
-        (unsigned char)(negHeight),     // Image height (negative for top-down)
-        (unsigned char)(negHeight >> 8),
-        (unsigned char)(negHeight >> 16),
-        (unsigned char)(negHeight >> 24),
-        1, 0,                          // Planes (must be 1)
-        32, 0,                         // Bits per pixel (32)
-        0, 0, 0, 0,                    // Compression (0 = BI_RGB, no compression)
-        (unsigned char)(imgSize),       // Image size (can be 0 for uncompressed, but we fill it)
-        (unsigned char)(imgSize >> 8),
-        (unsigned char)(imgSize >> 16),
-        (unsigned char)(imgSize >> 24),
-        0x13, 0x0B, 0, 0,              // X pixels per meter (2835 ~72 DPI)
-        0x13, 0x0B, 0, 0,              // Y pixels per meter (2835 ~72 DPI)
-        0, 0, 0, 0,                    // Colors used (0 = default)
-        0, 0, 0, 0                     // Important colors (0 = all)
-    };
-
-    fwrite(bmpFileHeader, 1, 14, f);
-    fwrite(bmpInfoHeader, 1, 40, f);
-
-    // Write pixel data.
-    // BMP expects pixels in BGRA order. Convert each pixel from RGBA to BGRA.
-    for (int i = 0; i < width * height; i++) {
-        unsigned char r = pixels[i * 4 + 0];
-        unsigned char g = pixels[i * 4 + 1];
-        unsigned char b = pixels[i * 4 + 2];
-        unsigned char a = pixels[i * 4 + 3];
-        unsigned char bgra[4] = { b, g, r, a };
-        fwrite(bgra, 1, 4, f);
-    }
-
-    fclose(f);
-    return 0;
-}
-
 bool EGLCore::FinishDraw()
 {
     // The gl function has no return value.
     glFlush();
     glFinish();
-
-    // HACK - needs to be done in egl driver
-
-    int32_t f;
-    OH_NativeWindow_NativeWindowHandleOpt(gWindow, GET_FORMAT, &f);
-    OH_LOG_Print(LOG_APP, LOG_INFO, LOG_PRINT_DOMAIN, "EGLCore", "f: %{public}x", f);
-
-    int32_t u;
-    OH_NativeWindow_NativeWindowHandleOpt(gWindow, GET_USAGE, &u);
-    OH_LOG_Print(LOG_APP, LOG_INFO, LOG_PRINT_DOMAIN, "EGLCore", "u: %{public}x", u);
-
-    int32_t width, height;
-    int32_t ret = OH_NativeWindow_NativeWindowHandleOpt(gWindow, GET_BUFFER_GEOMETRY, &width, &height);
-    if (ret) {
-        OH_LOG_Print(LOG_APP, LOG_INFO, LOG_PRINT_DOMAIN, "EGLCore", "OH_NativeWindow_NativeWindowHandleOpt SET_BUFFER_GEOMETRY failed");
-    }
-
-    OH_NativeWindow_NativeWindowHandleOpt(gWindow, SET_USAGE, 0x109);
-    OH_NativeWindow_NativeWindowHandleOpt(gWindow, SET_FORMAT, 0xc);
-
-    // Read back the framebuffer
-    GLubyte *pixel = (GLubyte *)malloc(4 * width * height);
-    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
-
-    OH_LOG_Print(LOG_APP, LOG_INFO, LOG_PRINT_DOMAIN, "EGLCore", "R: %{public}d, G: %{public}d, B: %{public}d, A: %{public}d", pixel[0], pixel[1], pixel[2], pixel[3]);
-    OH_LOG_Print(LOG_APP, LOG_INFO, LOG_PRINT_DOMAIN, "EGLCore", "R: %{public}d, G: %{public}d, B: %{public}d, A: %{public}d", pixel[4], pixel[5], pixel[6], pixel[7]);
-
-    int fenceFd = -1;
-    OHNativeWindowBuffer *nativeWindowBuffer = nullptr;
-    OH_NativeWindow_NativeWindowRequestBuffer(gWindow, &nativeWindowBuffer, &fenceFd);
-    BufferHandle *bufferHandle = OH_NativeWindow_GetBufferHandleFromNative(nativeWindowBuffer);
-    void *mappedAddr =
-        mmap(bufferHandle->virAddr, bufferHandle->size, PROT_READ | PROT_WRITE, MAP_SHARED, bufferHandle->fd, 0);
-
-    memcpy(mappedAddr, pixel, 4 * width * height);
-
-    struct Region *region = new Region();
-    OH_NativeWindow_NativeWindowFlushBuffer(gWindow, nativeWindowBuffer, fenceFd, *region);
-    munmap(mappedAddr, bufferHandle->size);
-
-    char buf[256];
-    static int i;
-    snprintf(buf, sizeof(buf), "/data/storage/el2/base/files/dump%02d.bmp", i++);
-
-    saveRGBA8888ToBMP(buf, width, height, pixel);
-
-    free(pixel);
-
     return eglSwapBuffers(eglDisplay_, eglSurface_);
 }
 
