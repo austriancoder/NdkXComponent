@@ -31,7 +31,7 @@ constexpr int32_t NUM_4 = 4;
 /**
  * Vertex shader.
  */
-const char VERTEX_SHADER3[] = "#version 300 es\n"
+const char VERTEX_SHADER[] = "#version 300 es\n"
                              "layout(location = 0) in vec4 a_position;\n"
                              "layout(location = 1) in vec4 a_color;   \n"
                              "out vec4 v_color;                       \n"
@@ -41,21 +41,10 @@ const char VERTEX_SHADER3[] = "#version 300 es\n"
                              "   v_color = a_color;                   \n"
                              "}                                       \n";
 
-
-const char VERTEX_SHADER[] = "#version 100\n"
-"attribute vec4 a_position;\n"
-"attribute vec4 a_color;\n"
-"varying vec4 v_color;\n"
-"void main()\n"
-"{\n"
-"    gl_Position = a_position;\n"
-"    v_color = a_color;\n"
-"}\n";
-
 /**
  * Fragment shader.
  */
-const char FRAGMENT_SHADER3[] = "#version 300 es\n"
+const char FRAGMENT_SHADER[] = "#version 300 es\n"
                                "precision mediump float;                  \n"
                                "in vec4 v_color;                          \n"
                                "out vec4 fragColor;                       \n"
@@ -63,15 +52,6 @@ const char FRAGMENT_SHADER3[] = "#version 300 es\n"
                                "{                                         \n"
                                "   fragColor = v_color;                   \n"
                                "}                                         \n";
-
-const char FRAGMENT_SHADER[] = "#version 100\n"
-"precision mediump float;\n"
-"varying vec4 v_color;\n"
-"void main()\n"
-"{\n"
-"    gl_FragColor = v_color;\n"
-"}\n";
-
 
 /**
  * Background color #f4f4f4.
@@ -205,7 +185,7 @@ const EGLint ATTRIB_LIST[] = {
  * Context attributes.
  */
 const EGLint CONTEXT_ATTRIBS[] = {
-    EGL_CONTEXT_CLIENT_VERSION, 2,
+    EGL_CONTEXT_CLIENT_VERSION, 3,
     EGL_NONE};
 } // namespace
 
@@ -218,10 +198,8 @@ bool EGLCore::EglContextInit(void* window, int width, int height)
     setenv("MESA_LOADER_DRIVER_OVERRIDE", "zink", 1);
     setenv("EGL_LOG_LEVEL", "debug", 1);
     setenv("MESA_LOG", "ohos", 1);
-    //setenv("GALLIUM_HUD", "fps", 1);
-    //setenv("MESA_GLES_VERSION_OVERRIDE", "3.0", 1);
-    setenv("ZINK_DEBUG", "mem,map,flushsync,spirv,sync,nir", 1);
-    setenv("GALLIUM_THREAD", "0", 1);
+    setenv("MESA_GLES_VERSION_OVERRIDE", "3.1", 1);
+    setenv("ZINK_DEBUG", "spirv,nir", 1);
 
     OH_LOG_Print(LOG_APP, LOG_INFO, LOG_PRINT_DOMAIN, "EGLCore", "EglContextInit execute");
     if ((window == nullptr) || (width <= 0) || (height <= 0)) {
